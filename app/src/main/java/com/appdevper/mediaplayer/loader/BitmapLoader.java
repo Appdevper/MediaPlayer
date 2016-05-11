@@ -1,6 +1,17 @@
 package com.appdevper.mediaplayer.loader;
 
-import java.io.BufferedInputStream;
+import android.app.Activity;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.MediaMetadataRetriever;
+import android.util.Log;
+import android.widget.ImageView;
+
+import com.appdevper.mediaplayer.R;
+import com.appdevper.mediaplayer.util.Utils;
+
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -11,22 +22,13 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import android.app.Activity;
-import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.net.Uri;
-import android.widget.ImageView;
-
-import com.appdevper.mediaplayer.R;
-import com.appdevper.mediaplayer.util.Utils;
-
-public class ImageLoader {
+public class BitmapLoader {
     private static final String TAG = "ImageLoader";
 
     private MemoryCache memoryCache = new MemoryCache();
@@ -35,7 +37,7 @@ public class ImageLoader {
     private ExecutorService executorService;
     private int stub_id = R.drawable.ic_launcher;
 
-    public ImageLoader(Context context) {
+    public BitmapLoader(Context context) {
         fileCache = new FileCache(context);
         executorService = Executors.newFixedThreadPool(20);
     }
@@ -44,7 +46,7 @@ public class ImageLoader {
         this.stub_id = img;
     }
 
-    public void displayImage(String url, ImageView imageView) {
+    public void DisplayImage(String url, ImageView imageView) {
         imageViews.put(imageView, url);
         Bitmap bitmap = memoryCache.get(url);
         if (bitmap != null)
@@ -71,13 +73,22 @@ public class ImageLoader {
         // from web
         if (url.equals("") || url == null)
             return null;
+        final MediaMetadataRetriever metaRetriever = new MediaMetadataRetriever();
         try {
             Bitmap bitmap = null;
-            URL imageUrl = new URL(url);
+            metaRetriever.setDataSource(url, new HashMap<String, String>());
+            try {
+                final byte[] art = metaRetriever.getEmbeddedPicture();
+                bitmap = BitmapFactory.decodeByteArray(art, 0, art.length);
+            } catch (Exception e) {
+                Log.d(TAG, "Couldn't create album art: " + e.getMessage());
+            }
 
-            HttpURLConnection conn = (HttpURLConnection) imageUrl.openConnection();
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+            byte[] byteArray = stream.toByteArray();
 
-            InputStream is = conn.getInputStream();
+            InputStream is = new ByteArrayInputStream(byteArray);
             OutputStream os = new FileOutputStream(f);
             Utils.CopyStream(is, os);
             os.close();
